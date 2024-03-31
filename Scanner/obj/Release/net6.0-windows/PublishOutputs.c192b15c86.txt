@@ -1,0 +1,16 @@
+D:\Projects\scanner\Scanner.exe
+D:\Projects\scanner\Scanner.dll
+D:\Projects\scanner\Scanner.deps.json
+D:\Projects\scanner\Scanner.runtimeconfig.json
+D:\Projects\scanner\Scanner.dll.config
+D:\Projects\scanner\Scanner.pdb
+D:\Projects\scanner\AForge.dll
+D:\Projects\scanner\AForge.Video.dll
+D:\Projects\scanner\AForge.Video.DirectShow.dll
+D:\Projects\scanner\Microsoft.Win32.SystemEvents.dll
+D:\Projects\scanner\Newtonsoft.Json.dll
+D:\Projects\scanner\System.Drawing.Common.dll
+D:\Projects\scanner\zxing.dll
+D:\Projects\scanner\ZXing.Windows.Compatibility.dll
+D:\Projects\scanner\runtimes\win\lib\net6.0\Microsoft.Win32.SystemEvents.dll
+D:\Projects\scanner\runtimes\win\lib\net6.0\System.Drawing.Common.dll
