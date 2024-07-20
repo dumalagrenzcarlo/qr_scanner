@@ -18,6 +18,9 @@ using static System.Windows.Forms.VisualStyles.VisualStyleElement.Button;
 using RadioButton = System.Windows.Forms.RadioButton;
 using System.Security.Policy;
 using System.Net.Http;
+using System.Configuration;
+using Microsoft.VisualBasic;
+using System;
 
 namespace Scanner
 {
@@ -25,65 +28,200 @@ namespace Scanner
     {
         private FilterInfoCollection CaptureDevice;
         private VideoCaptureDevice FinalFrame;
-        Task<List<Students>?> studentData;
-        string schoolLogoPath;
-        string? scannerName = System.Configuration.ConfigurationManager.AppSettings["SchoolScannerName"];
-        string? schoolName = System.Configuration.ConfigurationManager.AppSettings["SchoolName"];
-        string? schoolLogoURL = System.Configuration.ConfigurationManager.AppSettings["SchoolLogoURL"];
-        string? schoolURL = System.Configuration.ConfigurationManager.AppSettings["SchoolWebsiteURL"];
-        string? authCode = System.Configuration.ConfigurationManager.AppSettings["AuthCode"];
-        public Form1()
+        private Task<List<Students>?> studentData;
+
+        public string authCode
         {
-
-            InitializeComponent();
-            //change the Title
-            this.Text = scannerName;
-
-            label5.Text = schoolName;
-            label5.TextAlign = ContentAlignment.MiddleCenter;
-            pictureBox2.ImageLocation = schoolLogoURL;
-
-
-            //get the list of students in the website first and add to memory 
-            studentData = GetStudentsData(schoolURL + "/autosync?token=" + authCode);
-            SyncronizeDataToWeb();
+            get
+            {
+                return System.Configuration.ConfigurationManager.AppSettings["AuthCode"];
+            }
         }
 
+        public string schoolURL
+        {
+            get
+            {
+                return System.Configuration.ConfigurationManager.AppSettings["SchoolWebsiteURL"];
+            }
+        }
+
+        public Form1()
+        {
+            InitializeComponent();
+
+            this.Text = "Attendance Scanner System";
+
+            //check if there is internet connection first
+            if (!System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable())
+            {
+                MessageBox.Show("Please check your internet connection and try again.");
+                return;
+            }
+
+            // Check if website URL is set in app.config  
+            if (string.IsNullOrEmpty(schoolURL) && string.IsNullOrEmpty(authCode))
+            {
+                // Show a popup to ask for the website URL and authentication code
+                string userInput = Interaction.InputBox("Please enter the School Application URL:", "Enter School URL", "");
+                string authCodeInput = Interaction.InputBox("Please enter the Authentication Code:", "Enter Authentication Code", "");
+
+                // Save the website URL and auth code in app.config
+                SaveAppSettings("SchoolWebsiteURL", userInput);
+                SaveAppSettings("AuthCode", authCodeInput);
+            }
+
+            // Check if auth code matches, invalidate the request and show a popup message
+            if (!IsValidAuthCode(schoolURL, authCode))
+            {
+                MessageBox.Show("Setup is incomplete. Please contact support and try again.");
+                //disable the camera button
+                button1.Enabled = false;
+                button1.Text = "SETUP ERROR";
+                button1.BackColor = Color.White;
+
+                return;
+            }
+            else
+            {
+                // Continue with the rest of your code
+                var school = GetSchoolData(schoolURL, authCode);
+
+                if (school != null)
+                {
+                    label5.Text = school.school_name;
+                    pictureBox2.ImageLocation = schoolURL + "/" + school.logo;
+                }
+
+                label5.TextAlign = ContentAlignment.MiddleCenter;
+                studentData = GetStudentsData(schoolURL + "/autosync?token=" + authCode);
+                SyncronizeDataToWeb();
+            }
+
+        }
+
+        private void SaveAppSettings(string key, string value)
+        {
+            Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
+            KeyValueConfigurationElement setting = config.AppSettings.Settings[key];
+
+            if (setting != null)
+            {
+                setting.Value = value;
+            }
+            else
+            {
+                config.AppSettings.Settings.Add(key, value);
+            }
+
+            config.Save(ConfigurationSaveMode.Modified);
+            ConfigurationManager.RefreshSection("appSettings");
+        }
+
+        private bool IsValidAuthCode(string schoolURL, string authCode)
+        {
+            if (schoolURL == null || authCode == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                using (HttpClient client = new HttpClient())
+                {
+                    HttpResponseMessage response = client.GetAsync(schoolURL + "/validatetoken?token=" + authCode).Result;
+
+                    var jsonString = response.Content.ReadAsStringAsync().Result;
+                    if (jsonString != null)
+                    {
+                        return jsonString.Contains("Access Granted") ? true : false;
+                    }
+                }
+
+                // Add your authentication code validation logic here
+                // Return true if the auth code is valid, otherwise return false
+                return false; // Placeholder, implement your validation logic
+            }
+            catch { return false; }
+        }
+
+        private School? GetSchoolData(string schoolURL, string authCode)
+        {
+            if (schoolURL == null || authCode == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                using (HttpClient client = new HttpClient())
+                {
+                    HttpResponseMessage response = client.GetAsync(schoolURL + "/getapplicationdata?token=" + authCode).Result;
+
+                    var jsonString = response.Content.ReadAsStringAsync().Result;
+                    if (jsonString != null)
+                    {
+                        return jsonString.Contains("Access Denied") ? null : JsonConvert.DeserializeObject<School>(jsonString);
+                    }
+                }
+
+                // Add your authentication code validation logic here
+                // Return true if the auth code is valid, otherwise return false
+                return null; // Placeholder, implement your validation logic
+            }
+            catch { return null; }
+        }
         /// <summary>
         /// Sync the attendance data to the webserver
         /// </summary>
-        public void SyncronizeDataToWeb()
+        public void SyncronizeDataToWeb(int? days = null, bool showmsg = false)
         {
             try
             {
                 using (var client = new HttpClient())
                 {
-                    var dailyRecordsPath = GetAttendanceDataPath();
-                    var jsonData = LoadJson(dailyRecordsPath);
+                    var day = days.HasValue ? days.Value : 1;
+                    //default sync to 1 day
+                    var daysToSync = Enumerable.Range(0, day).Select(x => DateTime.Today.AddDays(-x)).ToList();
 
-                    string json = JsonConvert.SerializeObject(jsonData);
-                    var content = new StringContent(json);
-
-                    var syncUrl = schoolURL + "/autosync/syncronizeattendance?token=" + authCode;
-
-                    var task = Task.Run(() => client.PostAsync(syncUrl, content));
-                    task.Wait();
-                    var response = task.Result.Content.ReadAsStringAsync().Result;
-                    if (task.Result.StatusCode != HttpStatusCode.OK)
+                    foreach (var date in daysToSync)
                     {
-                        MessageBox.Show("Cannot synchronize data to webserver. Please contact system administrator and present this error. "
-                            + Environment.NewLine + Environment.NewLine +
-                            response, task.Result.ReasonPhrase);
+                        var dailyRecordsPath = GetAttendanceOfAttendanceToday(date);
+                        var jsonData = LoadJson(dailyRecordsPath);
+
+                        if (jsonData is null)
+                            continue;
+
+                        string json = JsonConvert.SerializeObject(jsonData);
+                        var content = new StringContent(json);
+
+                        var syncUrl = schoolURL + "/autosync/syncronizeattendance?token=" + authCode;
+
+                        var task = Task.Run(() => client.PostAsync(syncUrl, content));
+                        task.Wait();
+                        var response = task.Result.Content.ReadAsStringAsync().Result;
+                        if (task.Result.StatusCode != HttpStatusCode.OK)
+                        {
+                            MessageBox.Show("Cannot synchronize data to webserver. Please contact system administrator and present this error. "
+                                + Environment.NewLine + Environment.NewLine +
+                                response, task.Result.ReasonPhrase);
+                        }
+                        else if (!response.Contains("Synchronization Complete"))
+                        {
+                            MessageBox.Show("Cannot synchronize data to webserver. Please contact system administrator and present this error." +
+                                Environment.NewLine + Environment.NewLine +
+                                "URL may not be accessible", task.Result.ReasonPhrase);
+                        } 
                     }
-                    else if (!response.Contains("Synchronization Complete"))
-                    {
-                        MessageBox.Show("Cannot synchronize data to webserver. Please contact system administrator and present this error." +
-                            Environment.NewLine + Environment.NewLine +
-                            "URL may not be accessible", task.Result.ReasonPhrase);
-                    }
-                    else
+
+                    if(showmsg)
                     {
                         MessageBox.Show("Synchronization to webserver completed");
+                    }
+
+                    if (days != null)
+                    {
+                        MessageBox.Show("Synchronization to webserver completed for the last " + day + " days");
                     }
                 }
             }
@@ -91,27 +229,43 @@ namespace Scanner
             {
                 MessageBox.Show(ex.Message);
             }
-
         }
 
         //check path
-        public string GetAttendanceDataPath()
-        { 
-            //get date today
+        public string GetAttendancePath()
+        {
             var exePath = System.AppDomain.CurrentDomain.BaseDirectory;
-            var dateToday = string.Format("{0}.json", DateTime.Now.ToString("dd-MMM-yyyy"));
-
-            var dailyRecordsPath = Path.Combine(exePath, "DailyRecords", dateToday);
-
-            if (!Directory.Exists(Path.Combine(exePath, "DailyRecords")))
+            var dailyRecordsDir = Path.Combine(exePath, "DailyRecords");
+            
+            //create the folder if it does not exist
+            if (!Directory.Exists(dailyRecordsDir))
             {
-                //create the base path
-                Directory.CreateDirectory(Path.Combine(exePath, "DailyRecords"));
+                Directory.CreateDirectory(dailyRecordsDir);
             }
 
-            return dailyRecordsPath;
-
+            return dailyRecordsDir;
         }
+
+        public string GetAttendanceOfAttendanceToday(DateTime? date = null)
+        {
+
+            var dateToday = string.Format("{0}.json", DateTime.Now.ToString("dd-MMM-yyyy"));
+            if (date.HasValue)
+                dateToday = string.Format("{0}.json", date.Value.ToString("dd-MMM-yyyy"));
+
+            var dailyRecordsPath = Path.Combine(GetAttendancePath(), dateToday);
+
+            //if file does not exist, create it
+            if (!File.Exists(dailyRecordsPath))
+            {
+                using (File.Create(dailyRecordsPath))
+                {
+                    // Do nothing, just create the file
+                }
+            }
+            return dailyRecordsPath;
+        }
+
 
         public void WriteToJSON(Attendance? attendances)
         {
@@ -120,8 +274,8 @@ namespace Scanner
                 return;
 
             //get date today
-            var dailyRecordsPath = GetAttendanceDataPath();
-             
+            var dailyRecordsPath = GetAttendanceOfAttendanceToday();
+
 
             //check if the path exists
             if (File.Exists(dailyRecordsPath))
@@ -130,7 +284,7 @@ namespace Scanner
                 var jsonData = LoadJson(dailyRecordsPath);
                 //do 
                 if (jsonData is null)
-                    return;
+                    jsonData = new List<Attendance>();
 
                 if (jsonData.ToList().Any(s => s.type == attendances.type && s.lrn == attendances.lrn))
                 {
@@ -183,13 +337,12 @@ namespace Scanner
             {
                 using (HttpClient client = new HttpClient())
                 {
-                    HttpResponseMessage response = await client.GetAsync(url);
+                    HttpResponseMessage response = client.GetAsync(url).Result;
                     response.EnsureSuccessStatusCode();
-                    var jsonString = await response.Content.ReadAsStringAsync();
+                    var jsonString = response.Content.ReadAsStringAsync().Result;
                     if (jsonString != null)
                     {
                         return JsonConvert.DeserializeObject<List<Students>>(jsonString);
-
                     }
                 }
             }
@@ -231,7 +384,7 @@ namespace Scanner
             ExitCamera();
 
             //Send the data to the webserver after closing
-            SyncronizeDataToWeb();
+            SyncronizeDataToWeb(null, true);
             //this.Close();
         }
 
@@ -386,6 +539,50 @@ namespace Scanner
         private void pictureBox3_Click(object sender, EventArgs e)
         {
 
+        }
+
+        private void panel3_Paint(object sender, PaintEventArgs e)
+        {
+
+        }
+
+        private void toolStripMenuItem1_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void last3DaysToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            SyncronizeDataToWeb(3);
+        }
+
+        private void last7DaysToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            SyncronizeDataToWeb(7);
+        }
+
+        private void last14DaysToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            SyncronizeDataToWeb(14);
+        }
+
+        private void last30DaysToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            SyncronizeDataToWeb(30);
+        }
+
+        private void settingsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            // Show a popup to ask for the website URL and authentication code
+            string userInput = Interaction.InputBox("Please enter the School Application URL:", "Enter School URL", "");
+            string authCodeInput = Interaction.InputBox("Please enter the Authentication Code:", "Enter Authentication Code", "");
+
+            // Save the website URL and auth code in app.config
+            SaveAppSettings("SchoolWebsiteURL", userInput);
+            SaveAppSettings("AuthCode", authCodeInput);
+
+            Application.Restart();
+            Environment.Exit(0);
         }
     }
 }
