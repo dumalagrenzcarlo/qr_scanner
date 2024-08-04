@@ -15,7 +15,7 @@
     {
         "Entry"
         {
-        "MsmKey" = "8:_59587B1D5EBE46439DC53A8FC4DF0972"
+        "MsmKey" = "8:_6BD167778B5E404CBF4E19F4A4C65520"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -43,6 +43,14 @@
         "PrivateKeyFile" = "8:"
         "TimeStampServer" = "8:"
         "InstallerBootstrapper" = "3:2"
+            "BootstrapperCfg:{63ACBE69-63AA-4F98-B2B6-99F9E24495F2}"
+            {
+            "Enabled" = "11:TRUE"
+            "PromptEnabled" = "11:TRUE"
+            "PrerequisitesLocation" = "2:1"
+            "Url" = "8:"
+            "ComponentsUrl" = "8:"
+            }
         }
         "Release"
         {
@@ -59,6 +67,14 @@
         "PrivateKeyFile" = "8:"
         "TimeStampServer" = "8:"
         "InstallerBootstrapper" = "3:2"
+            "BootstrapperCfg:{63ACBE69-63AA-4F98-B2B6-99F9E24495F2}"
+            {
+            "Enabled" = "11:TRUE"
+            "PromptEnabled" = "11:TRUE"
+            "PrerequisitesLocation" = "2:1"
+            "Url" = "8:"
+            "ComponentsUrl" = "8:"
+            }
         }
     }
     "Deployable"
@@ -90,10 +106,10 @@
         }
         "File"
         {
-            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_59587B1D5EBE46439DC53A8FC4DF0972"
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_6BD167778B5E404CBF4E19F4A4C65520"
             {
-            "SourcePath" = "8:C:\\Users\\dumal\\Downloads\\RR.ico"
-            "TargetName" = "8:RR.ico"
+            "SourcePath" = "8:C:\\Users\\dumal\\Downloads\\favicon.ico"
+            "TargetName" = "8:favicon.ico"
             "Tag" = "8:"
             "Folder" = "8:_D16659681C5943BFB536D8FD3D377318"
             "Condition" = "8:"
@@ -298,7 +314,7 @@
             "Target" = "8:_6D2A893CF9814EB390D19DC094AFCCD6"
             "Folder" = "8:_14EDB81105624E0BAD8D6491EBE0FB86"
             "WorkingFolder" = "8:_D16659681C5943BFB536D8FD3D377318"
-            "Icon" = "8:_59587B1D5EBE46439DC53A8FC4DF0972"
+            "Icon" = "8:_6BD167778B5E404CBF4E19F4A4C65520"
             "Feature" = "8:"
             }
         }
