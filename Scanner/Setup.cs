@@ -7,6 +7,7 @@ using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Web;
 using System.Windows.Forms;
 
 namespace Scanner
@@ -80,10 +81,6 @@ namespace Scanner
             {
                 using (HttpClient client = new HttpClient())
                 {
-                    //check if school url has https, if not, add it
-                    if (!schoolURL.StartsWith("https://"))
-                    schoolURL = "https://" + schoolURL;
-
                     HttpResponseMessage response = client.GetAsync(schoolURL + "/validatetoken?token=" + authCode).Result;
 
                     var jsonString = response.Content.ReadAsStringAsync().Result;
